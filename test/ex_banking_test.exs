@@ -2,15 +2,18 @@ defmodule ExBankingTest do
   use ExUnit.Case
   doctest ExBanking
 
-  test "create user" do
-    assert ExBanking.create_user("user") == :ok
-    assert ExBanking.create_user("USER") == :ok
+  setup %{line: line} do
+    {:ok, username: "user#{line}", username2: "user#{line + 1}"}
   end
 
-  test "create user that already exists" do
-    ExBanking.create_user("user")
-    assert ExBanking.create_user("user") == {:error, :user_already_exists}
-    assert ExBanking.create_user("USER") == :ok
+  test "create user", %{username: username} do
+    assert ExBanking.create_user(username) == :ok
+    assert ExBanking.create_user(String.upcase(username)) == :ok
+  end
+
+  test "create user that already exists", %{username: username} do
+    ExBanking.create_user(username)
+    assert ExBanking.create_user(username) == {:error, :user_already_exists}
   end
 
   test "wrong arguments" do
@@ -35,16 +38,16 @@ defmodule ExBankingTest do
     assert ExBanking.send("user", "user", 100, "USD") == {:error, :wrong_arguments}
   end
 
-  test "user does not exist" do
-    assert ExBanking.deposit("user", 100, "USD") == {:error, :user_does_not_exist}
-    assert ExBanking.withdraw("user", 100, "USD") == {:error, :user_does_not_exist}
-    assert ExBanking.get_balance("user", "USD") == {:error, :user_does_not_exist}
-    assert ExBanking.send("user", "user2", 100, "USD") == {:error, :sender_does_not_exist}
-    ExBanking.create_user("user")
-    assert ExBanking.send("user", "user2", 100, "USD") == {:error, :receiver_does_not_exist}
+  test "user does not exist", %{username: username, username2: username2} do
+    assert ExBanking.deposit(username, 100, "USD") == {:error, :user_does_not_exist}
+    assert ExBanking.withdraw(username, 100, "USD") == {:error, :user_does_not_exist}
+    assert ExBanking.get_balance(username, "USD") == {:error, :user_does_not_exist}
+    assert ExBanking.send(username, username2, 100, "USD") == {:error, :sender_does_not_exist}
+    ExBanking.create_user(username)
+    assert ExBanking.send(username, username2, 100, "USD") == {:error, :receiver_does_not_exist}
   end
 
-  test "too many requests to user" do
+  test "too many requests to user", %{username: username, username2: username2} do
     functions = [
       &ExBanking.deposit/3,
       &ExBanking.get_balance/2,
@@ -53,10 +56,10 @@ defmodule ExBankingTest do
     ]
 
     args = [
-      get_balance: ["user", 100],
-      deposit: ["user", 100, "USD"],
-      withdraw: ["user", 100, "USD"],
-      send: ["user", "user2", 100, "USD"]
+      get_balance: [username, "USD"],
+      deposit: [username, 100, "USD"],
+      withdraw: [username, 100, "USD"],
+      send: [username, username2, 100, "USD"]
     ]
 
     errors = [
@@ -65,13 +68,13 @@ defmodule ExBankingTest do
       {:ok, {:error, :too_many_requests_to_receiver}}
     ]
 
-    ExBanking.create_user("user")
-    ExBanking.create_user("user2")
+    ExBanking.create_user(username)
+    ExBanking.create_user(username2)
 
-    1..100 |> Enum.map(fn _ -> Enum.random(functions) end)
+    prepared_functions = 1..100 |> Enum.map(fn _ -> Enum.random(functions) end)
 
     tasks =
-      Task.async_stream(functions, fn function ->
+      Task.async_stream(prepared_functions, fn function ->
         name = Function.info(function)[:name]
         apply(function, args[name])
       end)
@@ -80,38 +83,38 @@ defmodule ExBankingTest do
     assert Enum.any?(tasks, fn elem -> Enum.any?(errors, fn error -> error == elem end) end) == true
   end
 
-  test "not enough money" do
-    ExBanking.create_user("user")
-    ExBanking.create_user("user2")
-    assert ExBanking.withdraw("user", 0.1, "USD") == {:error, :not_enough_money}
-    ExBanking.deposit("user", 0.1, "USD")
-    assert ExBanking.withdraw("user", 0.1, "usd") == {:error, :not_enough_money}
-    assert ExBanking.send("user", "user2", 0.2, "USD") == {:error, :not_enough_money}
+  test "not enough money", %{username: username, username2: username2} do
+    ExBanking.create_user(username)
+    ExBanking.create_user(username2)
+    assert ExBanking.withdraw(username, 0.1, "USD") == {:error, :not_enough_money}
+    ExBanking.deposit(username, 0.1, "USD")
+    assert ExBanking.withdraw(username, 0.1, "usd") == {:error, :not_enough_money}
+    assert ExBanking.send(username, username2, 0.2, "USD") == {:error, :not_enough_money}
   end
 
-  test "deposit money" do
-    ExBanking.create_user("user")
-    assert ExBanking.deposit("user", 0.1, "USD") == {:ok, 0.1}
-    assert ExBanking.deposit("user", 0.2, "USD") == {:ok, 0.3}
-    assert ExBanking.deposit("user", 0.2, "usd") == {:ok, 0.2}
+  test "deposit money", %{username: username} do
+    ExBanking.create_user(username)
+    assert ExBanking.deposit(username, 0.1, "USD") == {:ok, 0.1}
+    assert ExBanking.deposit(username, 0.2, "USD") == {:ok, 0.3}
+    assert ExBanking.deposit(username, 0.2, "usd") == {:ok, 0.2}
   end
 
-  test "get balance" do
-    ExBanking.create_user("user")
-    ExBanking.deposit("user", 0.1, "USD")
-    assert ExBanking.get_balance("user", "USD") == {:ok, 0.1}
+  test "get balance", %{username: username} do
+    ExBanking.create_user(username)
+    ExBanking.deposit(username, 0.1, "USD")
+    assert ExBanking.get_balance(username, "USD") == {:ok, 0.1}
   end
 
-  test "withdraw money" do
-    ExBanking.create_user("user")
-    ExBanking.deposit("user", 0.3, "USD")
-    assert ExBanking.withdraw("user", 0.1, "USD") == {:ok, 0.2}
+  test "withdraw money", %{username: username} do
+    ExBanking.create_user(username)
+    ExBanking.deposit(username, 0.3, "USD")
+    assert ExBanking.withdraw(username, 0.1, "USD") == {:ok, 0.2}
   end
 
-  test "send money" do
-    ExBanking.create_user("user")
-    ExBanking.create_user("user2")
-    ExBanking.deposit("user", 0.3, "USD")
-    assert ExBanking.send("user", "user2", 0.1, "USD") == {:ok, 0.2, 0.1}
+  test "send money", %{username: username, username2: username2} do
+    ExBanking.create_user(username)
+    ExBanking.create_user(username2)
+    ExBanking.deposit(username, 0.3, "USD")
+    assert ExBanking.send(username, username2, 0.1, "USD") == {:ok, 0.2, 0.1}
   end
 end

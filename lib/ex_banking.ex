@@ -28,8 +28,6 @@ defmodule ExBanking do
 
   @impl true
   def start(_type, _args) do
-    # Although we don't use the supervisor name below directly,
-    # it can be useful when debugging or introspecting the system.
     ExBanking.Supervisor.start_link(name: ExBanking.Supervisor)
   end
 
@@ -58,7 +56,7 @@ defmodule ExBanking do
   def deposit(user, amount, currency)
       when is_binary(user) and is_number(amount) and is_binary(currency) do
     with {true, true} <- {String.valid?(user), String.valid?(currency)},
-         amount <- convert_amount(amount),
+         amount when amount > 0 <- convert_amount(amount),
          {:ok, user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, user),
          {:ok, balance} <- ExBanking.User.inc(user),
          new_amount <- ExBanking.User.Balance.deposit(balance, amount, currency),
@@ -85,8 +83,17 @@ defmodule ExBanking do
              | :too_many_requests_to_user}
   def withdraw(user, amount, currency)
       when is_binary(user) and is_number(amount) and is_binary(currency) do
-
-    {:error, :wrong_arguments}
+    with {true, true} <- {String.valid?(user), String.valid?(currency)},
+         amount when amount > 0 <- convert_amount(amount),
+         {:ok, user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, user),
+         {:ok, balance} <- ExBanking.User.inc(user),
+         {:ok, new_amount} <- ExBanking.User.Balance.withdraw(balance, amount, currency),
+         :ok <- ExBanking.User.dec(user) do
+      {:ok, new_amount}
+    else
+      {:error, error} -> {:error, error}
+      _ -> {:error, :wrong_arguments}
+    end
   end
 
   def withdraw(_user, _amount, _currency), do: {:error, :wrong_arguments}
@@ -98,7 +105,16 @@ defmodule ExBanking do
           {:ok, balance :: number}
           | {:error, :wrong_arguments | :user_does_not_exist | :too_many_requests_to_user}
   def get_balance(user, currency) when is_binary(user) and is_binary(currency) do
-    {:error, :wrong_arguments}
+    with {true, true} <- {String.valid?(user), String.valid?(currency)},
+         {:ok, user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, user),
+         {:ok, balance} <- ExBanking.User.inc(user),
+         amount <- ExBanking.User.Balance.get_balance(balance, currency),
+         :ok <- ExBanking.User.dec(user) do
+      {:ok, amount}
+    else
+      {:error, error} -> {:error, error}
+      _ -> {:error, :wrong_arguments}
+    end
   end
 
   def get_balance(_user, _currency), do: {:error, :wrong_arguments}
@@ -125,7 +141,27 @@ defmodule ExBanking do
   def send(from_user, to_user, amount, currency)
       when is_binary(from_user) and is_binary(to_user) and is_binary(currency) and
              is_number(amount) do
-    {:error, :wrong_arguments}
+      with {true, true, true} when from_user != to_user <- {String.valid?(from_user), String.valid?(currency), String.valid?(to_user)},
+        amount when amount > 0 <- convert_amount(amount),
+        {:ok, from_user} <-
+          (case ExBanking.User.Registry.get(ExBanking.User.Registry, from_user) do
+            {:error, :user_does_not_exist} -> {:error, :sender_does_not_exist}
+            response -> response
+          end),
+        {:ok, to_user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, to_user),
+        {:ok, from_balance} <- ExBanking.User.inc(from_user),
+        {:ok, to_balance} <- ExBanking.User.inc(to_user),
+        {:ok, from_user_balance} <- ExBanking.User.Balance.withdraw(from_balance, amount, currency),
+        :ok <- ExBanking.User.dec(from_user),
+        to_user_balance <- ExBanking.User.Balance.deposit(to_balance, amount, currency),
+        :ok <- ExBanking.User.dec(to_user) do
+      {:ok, from_user_balance, to_user_balance}
+    else
+      {:error, :user_does_not_exist} -> {:error, :receiver_does_not_exist}
+      {:error, :sender_does_not_exist} -> {:error, :sender_does_not_exist}
+      {:error, error} -> {:error, error}
+      _ -> {:error, :wrong_arguments}
+    end
   end
 
   def send(_from_user, _to_user, _amount, _currency), do: {:error, :wrong_arguments}
