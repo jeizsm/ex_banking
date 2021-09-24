@@ -60,9 +60,9 @@ defmodule ExBankingTest do
     ]
 
     errors = [
-      {:error, :too_many_requests_to_user},
-      {:error, :too_many_requests_to_sender},
-      {:error, :too_many_requests_to_receiver}
+      {:ok, {:error, :too_many_requests_to_user}},
+      {:ok, {:error, :too_many_requests_to_sender}},
+      {:ok, {:error, :too_many_requests_to_receiver}}
     ]
 
     ExBanking.create_user("user")
@@ -77,7 +77,7 @@ defmodule ExBankingTest do
       end)
       |> Enum.to_list()
 
-    assert Enum.any?(tasks, fn elem -> Enum.any?(errors, elem) end) == true
+    assert Enum.any?(tasks, fn elem -> Enum.any?(errors, fn error -> error == elem end) end) == true
   end
 
   test "not enough money" do

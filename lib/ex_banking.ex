@@ -57,7 +57,17 @@ defmodule ExBanking do
           | {:error, :wrong_arguments | :user_does_not_exist | :too_many_requests_to_user}
   def deposit(user, amount, currency)
       when is_binary(user) and is_number(amount) and is_binary(currency) do
-    {:error, :wrong_arguments}
+    with {true, true} <- {String.valid?(user), String.valid?(currency)},
+         amount <- convert_amount(amount),
+         {:ok, user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, user),
+         {:ok, balance} <- ExBanking.User.inc(user),
+         new_amount <- ExBanking.User.Balance.deposit(balance, amount, currency),
+         :ok <- ExBanking.User.dec(user) do
+      {:ok, new_amount}
+    else
+      {:error, error} -> {:error, error}
+      _ -> {:error, :wrong_arguments}
+    end
   end
 
   def deposit(_user, _amount, _currency), do: {:error, :wrong_arguments}
@@ -75,6 +85,7 @@ defmodule ExBanking do
              | :too_many_requests_to_user}
   def withdraw(user, amount, currency)
       when is_binary(user) and is_number(amount) and is_binary(currency) do
+
     {:error, :wrong_arguments}
   end
 
@@ -118,4 +129,8 @@ defmodule ExBanking do
   end
 
   def send(_from_user, _to_user, _amount, _currency), do: {:error, :wrong_arguments}
+
+  @compile {:inline, convert_amount: 1}
+  defp convert_amount(amount) when is_integer(amount), do: Decimal.new(amount)
+  defp convert_amount(amount) when is_float(amount), do: Decimal.from_float(amount)
 end
