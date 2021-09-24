@@ -56,7 +56,7 @@ defmodule ExBanking do
   def deposit(user, amount, currency)
       when is_binary(user) and is_number(amount) and is_binary(currency) do
     with {true, true} <- {String.valid?(user), String.valid?(currency)},
-         amount when amount > 0 <- convert_amount(amount),
+         {:ok, amount} <- convert_amount(amount),
          {:ok, user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, user),
          {:ok, balance} <- ExBanking.User.inc(user),
          new_amount <- ExBanking.User.Balance.deposit(balance, amount, currency),
@@ -84,7 +84,7 @@ defmodule ExBanking do
   def withdraw(user, amount, currency)
       when is_binary(user) and is_number(amount) and is_binary(currency) do
     with {true, true} <- {String.valid?(user), String.valid?(currency)},
-         amount when amount > 0 <- convert_amount(amount),
+         {:ok, amount} <- convert_amount(amount),
          {:ok, user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, user),
          {:ok, balance} <- ExBanking.User.inc(user),
          {:ok, new_amount} <- ExBanking.User.Balance.withdraw(balance, amount, currency),
@@ -143,7 +143,7 @@ defmodule ExBanking do
              is_number(amount) do
     with {true, true, true} when from_user != to_user <-
            {String.valid?(from_user), String.valid?(currency), String.valid?(to_user)},
-         amount when amount > 0 <- convert_amount(amount),
+         {:ok, amount} <- convert_amount(amount),
          {:ok, from_user} <-
            (case ExBanking.User.Registry.get(ExBanking.User.Registry, from_user) do
               {:error, :user_does_not_exist} -> {:error, :sender_does_not_exist}
@@ -169,6 +169,7 @@ defmodule ExBanking do
   def send(_from_user, _to_user, _amount, _currency), do: {:error, :wrong_arguments}
 
   @compile {:inline, convert_amount: 1}
-  defp convert_amount(amount) when is_integer(amount), do: Decimal.new(amount)
-  defp convert_amount(amount) when is_float(amount), do: Decimal.from_float(amount)
+  defp convert_amount(amount) when amount < 0, do: {:error, :wrong_arguments}
+  defp convert_amount(amount) when is_integer(amount), do: {:ok, Decimal.new(amount)}
+  defp convert_amount(amount) when is_float(amount), do: {:ok, Decimal.from_float(amount)}
 end

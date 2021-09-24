@@ -20,11 +20,12 @@ defmodule ExBankingTest do
     assert ExBanking.create_user(1) == {:error, :wrong_arguments}
     assert ExBanking.create_user(<<239, 191, 19>>) == {:error, :wrong_arguments}
 
-    assert ExBanking.deposit("user", "100", "USD") == {:error, :wrong_arguments}
+    assert ExBanking.deposit("user", -100, "USD") == {:error, :wrong_arguments}
     assert ExBanking.deposit("user", 100, <<239, 191, 19>>) == {:error, :wrong_arguments}
     assert ExBanking.deposit(<<239, 191, 19>>, 100, "USD") == {:error, :wrong_arguments}
 
     assert ExBanking.withdraw("user", "100", "USD") == {:error, :wrong_arguments}
+    assert ExBanking.withdraw("user", -100, "USD") == {:error, :wrong_arguments}
     assert ExBanking.withdraw("user", 100, <<239, 191, 19>>) == {:error, :wrong_arguments}
     assert ExBanking.withdraw(<<239, 191, 19>>, 100, "USD") == {:error, :wrong_arguments}
 
@@ -36,6 +37,7 @@ defmodule ExBankingTest do
     assert ExBanking.send("user", "user2", 100, <<239, 191, 19>>) == {:error, :wrong_arguments}
     assert ExBanking.send("user", "user2", "100", "USD") == {:error, :wrong_arguments}
     assert ExBanking.send("user", "user", 100, "USD") == {:error, :wrong_arguments}
+    assert ExBanking.send("user", "user2", -100, "USD") == {:error, :wrong_arguments}
   end
 
   test "user does not exist", %{username: username, username2: username2} do
