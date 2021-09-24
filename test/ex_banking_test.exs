@@ -4,12 +4,13 @@ defmodule ExBankingTest do
 
   test "create user" do
     assert ExBanking.create_user("user") == :ok
-    assert ExBanking.create_user("USER") == {:ok}
+    assert ExBanking.create_user("USER") == :ok
   end
 
   test "create user that already exists" do
     ExBanking.create_user("user")
     assert ExBanking.create_user("user") == {:error, :user_already_exists}
+    assert ExBanking.create_user("USER") == :ok
   end
 
   test "wrong arguments" do

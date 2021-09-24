@@ -1,4 +1,6 @@
 defmodule ExBanking do
+  use Application
+
   @moduledoc """
     Test task for Elixir developers. Candidate should write a simple banking OTP application in Elixir language.
     General acceptance criteria
@@ -24,14 +26,27 @@ defmodule ExBanking do
       Requests for user A should not affect to performance of requests to user B (maybe except send function when both A and B users are involved in the request)
   """
 
+  @impl true
+  def start(_type, _args) do
+    # Although we don't use the supervisor name below directly,
+    # it can be useful when debugging or introspecting the system.
+    ExBanking.Supervisor.start_link(name: ExBanking.Supervisor)
+  end
+
   @doc """
     Function creates new user in the system
     New user has zero balance of any currency
   """
   @spec create_user(user :: String.t()) :: :ok | {:error, :wrong_arguments | :user_already_exists}
-  def create_user(_user) do
-    {:error, :wrong_arguments}
+  def create_user(user) when is_binary(user) do
+    with true <- String.valid?(user) do
+      ExBanking.User.Registry.create(ExBanking.User.Registry, user)
+    else
+      _ -> {:error, :wrong_arguments}
+    end
   end
+
+  def create_user(_user), do: {:error, :wrong_arguments}
 
   @doc """
     Increases user’s balance in given currency by amount value
@@ -40,9 +55,12 @@ defmodule ExBanking do
   @spec deposit(user :: String.t(), amount :: number, currency :: String.t()) ::
           {:ok, new_balance :: number}
           | {:error, :wrong_arguments | :user_does_not_exist | :too_many_requests_to_user}
-  def deposit(_user, _amount, _currency) do
+  def deposit(user, amount, currency)
+      when is_binary(user) and is_number(amount) and is_binary(currency) do
     {:error, :wrong_arguments}
   end
+
+  def deposit(_user, _amount, _currency), do: {:error, :wrong_arguments}
 
   @doc """
     Decreases user’s balance in given currency by amount value
@@ -55,9 +73,12 @@ defmodule ExBanking do
              | :user_does_not_exist
              | :not_enough_money
              | :too_many_requests_to_user}
-  def withdraw(_user, _amount, _currency) do
+  def withdraw(user, amount, currency)
+      when is_binary(user) and is_number(amount) and is_binary(currency) do
     {:error, :wrong_arguments}
   end
+
+  def withdraw(_user, _amount, _currency), do: {:error, :wrong_arguments}
 
   @doc """
     Returns balance of the user in given format
@@ -65,9 +86,11 @@ defmodule ExBanking do
   @spec get_balance(user :: String.t(), currency :: String.t()) ::
           {:ok, balance :: number}
           | {:error, :wrong_arguments | :user_does_not_exist | :too_many_requests_to_user}
-  def get_balance(_user, _currency) do
+  def get_balance(user, currency) when is_binary(user) and is_binary(currency) do
     {:error, :wrong_arguments}
   end
+
+  def get_balance(_user, _currency), do: {:error, :wrong_arguments}
 
   @doc """
     Decreases from_user’s balance in given currency by amount value
@@ -88,7 +111,11 @@ defmodule ExBanking do
              | :receiver_does_not_exist
              | :too_many_requests_to_sender
              | :too_many_requests_to_receiver}
-  def send(_from_user, _to_user, _amount, _currency) do
+  def send(from_user, to_user, amount, currency)
+      when is_binary(from_user) and is_binary(to_user) and is_binary(currency) and
+             is_number(amount) do
     {:error, :wrong_arguments}
   end
+
+  def send(_from_user, _to_user, _amount, _currency), do: {:error, :wrong_arguments}
 end
