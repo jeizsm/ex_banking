@@ -7,7 +7,8 @@ defmodule ExBanking.User do
     {:ok, {balance, 0}}
   end
 
-  @spec inc(atom | pid | {atom, any} | {:via, atom, any}) :: {:ok, pid} | {:error, :too_many_requests_to_user}
+  @spec inc(atom | pid | {atom, any} | {:via, atom, any}) ::
+          {:ok, pid} | {:error, :too_many_requests_to_user}
   def inc(user) do
     GenServer.call(user, :inc)
   end

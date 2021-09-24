@@ -141,20 +141,22 @@ defmodule ExBanking do
   def send(from_user, to_user, amount, currency)
       when is_binary(from_user) and is_binary(to_user) and is_binary(currency) and
              is_number(amount) do
-      with {true, true, true} when from_user != to_user <- {String.valid?(from_user), String.valid?(currency), String.valid?(to_user)},
-        amount when amount > 0 <- convert_amount(amount),
-        {:ok, from_user} <-
-          (case ExBanking.User.Registry.get(ExBanking.User.Registry, from_user) do
-            {:error, :user_does_not_exist} -> {:error, :sender_does_not_exist}
-            response -> response
-          end),
-        {:ok, to_user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, to_user),
-        {:ok, from_balance} <- ExBanking.User.inc(from_user),
-        {:ok, to_balance} <- ExBanking.User.inc(to_user),
-        {:ok, from_user_balance} <- ExBanking.User.Balance.withdraw(from_balance, amount, currency),
-        :ok <- ExBanking.User.dec(from_user),
-        to_user_balance <- ExBanking.User.Balance.deposit(to_balance, amount, currency),
-        :ok <- ExBanking.User.dec(to_user) do
+    with {true, true, true} when from_user != to_user <-
+           {String.valid?(from_user), String.valid?(currency), String.valid?(to_user)},
+         amount when amount > 0 <- convert_amount(amount),
+         {:ok, from_user} <-
+           (case ExBanking.User.Registry.get(ExBanking.User.Registry, from_user) do
+              {:error, :user_does_not_exist} -> {:error, :sender_does_not_exist}
+              response -> response
+            end),
+         {:ok, to_user} <- ExBanking.User.Registry.get(ExBanking.User.Registry, to_user),
+         {:ok, from_balance} <- ExBanking.User.inc(from_user),
+         {:ok, to_balance} <- ExBanking.User.inc(to_user),
+         {:ok, from_user_balance} <-
+           ExBanking.User.Balance.withdraw(from_balance, amount, currency),
+         :ok <- ExBanking.User.dec(from_user),
+         to_user_balance <- ExBanking.User.Balance.deposit(to_balance, amount, currency),
+         :ok <- ExBanking.User.dec(to_user) do
       {:ok, from_user_balance, to_user_balance}
     else
       {:error, :user_does_not_exist} -> {:error, :receiver_does_not_exist}

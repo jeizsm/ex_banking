@@ -80,7 +80,8 @@ defmodule ExBankingTest do
       end)
       |> Enum.to_list()
 
-    assert Enum.any?(tasks, fn elem -> Enum.any?(errors, fn error -> error == elem end) end) == true
+    assert Enum.any?(tasks, fn elem -> Enum.any?(errors, fn error -> error == elem end) end) ==
+             true
   end
 
   test "not enough money", %{username: username, username2: username2} do
