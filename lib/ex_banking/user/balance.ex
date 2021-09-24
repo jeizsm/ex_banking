@@ -16,7 +16,7 @@ defmodule ExBanking.User.Balance do
       Map.get_and_update(state, currency, fn current_amount ->
         current_amount = current_amount || Decimal.new(0)
         new_amount = Decimal.add(current_amount, amount)
-        {Decimal.round(new_amount, 2) |> Decimal.to_float(), new_amount}
+        {Decimal.round(new_amount, 2, :floor) |> Decimal.to_float(), new_amount}
       end)
     end)
   end
@@ -32,7 +32,7 @@ defmodule ExBanking.User.Balance do
         with current_amount when current_amount != nil <- current_amount,
              new_amount <- Decimal.sub(current_amount, amount),
              :gt <- Decimal.compare(new_amount, 0) do
-          {{:ok, Decimal.round(new_amount, 2) |> Decimal.to_float()}, new_amount}
+          {{:ok, Decimal.round(new_amount, 2, :floor) |> Decimal.to_float()}, new_amount}
         else
           _ -> {{:error, :not_enough_money}, current_amount}
         end
@@ -45,7 +45,7 @@ defmodule ExBanking.User.Balance do
   def get_balance(balance, currency) do
     Agent.get(
       balance,
-      &(Map.get(&1, currency, Decimal.new(0)) |> Decimal.round(2) |> Decimal.to_float())
+      &(Map.get(&1, currency, Decimal.new(0)) |> Decimal.round(2, :floor) |> Decimal.to_float())
     )
   end
 end
